@@ -1,8 +1,10 @@
 package transport
 
 import (
+	"errors"
 	"log"
 	"net"
+	"strings"
 
 	"github.com/bootjp/go-kvlib/store"
 	hraft "github.com/hashicorp/raft"
@@ -62,16 +64,36 @@ func (r *Redis) handle() error {
 	)
 }
 
-var argLens = map[string]int{
+var argsLen = map[string]int{
 	"GET": 2,
 	"SET": 3,
 	"DEL": 2,
 }
 
+const (
+	commandName = 0
+	keyName     = 1
+	value       = 2
+)
+
 /* ==============================================================================
  *    Validate command arguments length
  * ============================================================================*/
 func (r *Redis) validateCmd(cmd redcon.Command) error {
+	if len(cmd.Args) == 0 {
+		return errors.New("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "'command")
+	}
+	if len(cmd.Args) < argsLen[string(cmd.Args[commandName])] {
+		return errors.New("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "'command")
+	}
+
+	/* Check args length */
+	plainCmd := strings.ToUpper(string(cmd.Args[commandName]))
+
+	if len(cmd.Args) != argsLen[plainCmd] {
+		return errors.New("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "'command")
+	}
+	return nil
 
 }
 
