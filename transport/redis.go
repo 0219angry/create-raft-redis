@@ -3,8 +3,8 @@ package transport
 import (
 	"log"
 	"net"
-	"store"
 
+	"github.com/bootjp/go-kvlib/store"
 	hraft "github.com/hashicorp/raft"
 	"github.com/tidwall/redcon"
 )
