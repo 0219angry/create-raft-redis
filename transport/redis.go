@@ -1,10 +1,13 @@
 package transport
 
 import (
+	"context"
 	"errors"
 	"log"
 	"net"
 	"strings"
+
+	"create-raft-redis/store"
 
 	"github.com/bootjp/go-kvlib/store"
 	hraft "github.com/hashicorp/raft"
@@ -98,5 +101,36 @@ func (r *Redis) validateCmd(cmd redcon.Command) error {
 }
 
 func (r *Redis) processCmd(conn redcon.Conn, cmd redcon.Command) {
+	ctx := context.Background()
+	/*
+	 *	check if the node is the leader
+	 */
+	if r.raft.State() != hraft.Leader {
+		_, lid := r.raft.LeaderWithID()
+		add, err := store.GetRedisAddrByNodeID(r.stableStore, lid)
+		if err != nil {
+			conn.WriteError(err.Error())
+			return
+		}
 
+		conn.WriteError("MOVED -1 " + add)
+		return
+	}
+
+	planCmd := strings.ToUpper(string(cmd.Args[commandName]))
+	switch planCmd {
+	case "GET":
+		val, err := r.store.Get(ctx, cmd.Args[keyName])
+		if err != nil {
+			switch {
+			case errors.Is(err, store.ErrKeyNotFound):
+				conn.WriteNull()
+				return
+			default:
+				conn.WriteError(err.Error())
+				return
+			}
+		}
+		conn.WriteBulk(val)
+	}
 }
